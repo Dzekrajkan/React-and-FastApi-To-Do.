@@ -1,0 +1,42 @@
+version: "3.8"
+services:
+  db:
+    image: postgres:15
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: example
+      POSTGRES_DB: mydb
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    env_file:
+      - backend/.env     # <- создашь из .env.example
+    depends_on:
+      - db
+    volumes:
+      - ./backend:/app/backend      # bind mount для dev — изменения сразу видны
+    ports:
+      - "8002:8002"
+    # в entrypoint выполняется alembic migration и затем uvicorn
+
+  frontend:
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - ./:/app                   # монтируем весь репо (frontend в корне)
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:8002/api
+    command: sh -c "npm install --no-audit --no-fund && npm run dev -- --host 0.0.0.0 --port 5173"
+
+volumes:
+  dbdata:
